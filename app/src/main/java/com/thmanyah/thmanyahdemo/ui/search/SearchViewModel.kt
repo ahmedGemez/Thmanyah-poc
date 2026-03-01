@@ -11,13 +11,17 @@ import com.thmanyah.thmanyahdemo.ui.utils.toUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -29,17 +33,25 @@ class SearchViewModel @Inject constructor(
     private val _searchData = MutableStateFlow<UiState<HomeUiModel>>(UiState.Init())
     val searchData = _searchData.asStateFlow()
 
-    fun getSearchData(debouncedQuery: String) {
-        searchUseCase()
-            .onStart { _searchData.value = UiState.Loading() }
-            .onEach {
-                _searchData.value = it.toUiModel().toUiState()
-            }
-            .catch {
-                _searchData.value = it.toUiState()
-            }
-            .flowOn(ioDispatcher)
-            .launchIn(viewModelScope)
+    private val _searchQuery = MutableStateFlow("")
 
+    init {
+        viewModelScope.launch {
+            _searchQuery
+                .filter { it.isNotBlank() }
+                .flatMapLatest { _ ->
+                    searchUseCase()
+                        .onStart { _searchData.value = UiState.Loading() }
+                        .catch { _searchData.value = it.toUiState() }
+                        .flowOn(ioDispatcher)
+                }
+                .collect { response ->
+                    _searchData.value = response.toUiModel().toUiState()
+                }
+        }
+    }
+
+    fun getSearchData(debouncedQuery: String) {
+        _searchQuery.value = debouncedQuery
     }
 }
