@@ -75,9 +75,11 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
+    // Test rules and transitive dependencies:
     androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
+    // Needed for createComposeRule(), but not for createAndroidComposeRule<YourActivity>():
     debugImplementation(libs.androidx.ui.test.manifest)
+    debugImplementation(libs.androidx.ui.tooling)
     
     // Module dependencies
     implementation(project(":data"))
