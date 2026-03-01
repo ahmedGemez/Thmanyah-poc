@@ -11,6 +11,7 @@ import com.thmanyah.thmanyahdemo.R
 import com.thmanyah.thmanyahdemo.ui.models.UiState
 import com.thmanyah.thmanyahdemo.ui.models.home.HomeSectionUiModel
 import com.thmanyah.thmanyahdemo.ui.models.home.HomeUiModel
+import com.thmanyah.thmanyahdemo.ui.home.models.HomeIntent
 import io.mockk.MockKAnnotations
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -72,8 +73,8 @@ class HomeViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        assertTrue(viewModel.homeData.value is UiState.Success)
-        val successState = viewModel.homeData.value as UiState.Success<HomeUiModel>
+        assertTrue(viewModel.state.value.contentState is UiState.Success)
+        val successState = viewModel.state.value.contentState as UiState.Success<HomeUiModel>
         assertEquals(1, successState.data.sections.size)
         assertEquals(
             "Test Section",
@@ -114,12 +115,12 @@ class HomeViewModelTest {
         // When
         viewModel = HomeViewModel(getHomeDataUseCase, testDispatcher)
         testDispatcher.scheduler.advanceUntilIdle()
-        viewModel.loadNextPage()
+        viewModel.onIntent(HomeIntent.LoadNextPage)
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        assertTrue(viewModel.homeData.value is UiState.Success)
-        val successState = viewModel.homeData.value as UiState.Success<HomeUiModel>
+        assertTrue(viewModel.state.value.contentState is UiState.Success)
+        val successState = viewModel.state.value.contentState as UiState.Success<HomeUiModel>
         assertEquals(2, successState.data.sections.size)
         assertEquals(
             "First Page",
@@ -150,12 +151,12 @@ class HomeViewModelTest {
         // When
         viewModel = HomeViewModel(getHomeDataUseCase, testDispatcher)
         testDispatcher.scheduler.advanceUntilIdle()
-        viewModel.loadNextPage()
+        viewModel.onIntent(HomeIntent.LoadNextPage)
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        assertTrue(viewModel.homeData.value is UiState.Success)
-        val successState = viewModel.homeData.value as UiState.Success<HomeUiModel>
+        assertTrue(viewModel.state.value.contentState is UiState.Success)
+        val successState = viewModel.state.value.contentState as UiState.Success<HomeUiModel>
         assertEquals(1, successState.data.sections.size)
         assertEquals("Last Page", (successState.data.sections[0] as HomeSectionUiModel.Square).name)
     }
@@ -163,7 +164,6 @@ class HomeViewModelTest {
     @Test
     fun `should handle error state`() = runTest {
         // Given
-        val error = RuntimeException("Test error")
         coEvery { getHomeDataUseCase() } returns flow {
             throw IOException("Test error")
         }
@@ -174,8 +174,8 @@ class HomeViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        assertTrue(viewModel.homeData.value is UiState.Error)
-        val errorState = viewModel.homeData.value as UiState.Error
+        assertTrue(viewModel.state.value.contentState is UiState.Error)
+        val errorState = viewModel.state.value.contentState as UiState.Error
         assertEquals(R.string.no_internet_connection, errorState.error.messageRes)
     }
 
@@ -203,17 +203,17 @@ class HomeViewModelTest {
         // When
         viewModel = HomeViewModel(getHomeDataUseCase, testDispatcher)
         // First loadNextPage call
-        viewModel.loadNextPage()
+        viewModel.onIntent(HomeIntent.LoadNextPage)
         // Wait a bit to ensure _isLoadingMore is true
         delay(100)
         // Second loadNextPage call while first is still loading
-        viewModel.loadNextPage()
+        viewModel.onIntent(HomeIntent.LoadNextPage)
         // Wait for all operations to complete
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Then
-        assertTrue(viewModel.homeData.value is UiState.Success)
-        val successState = viewModel.homeData.value as UiState.Success<HomeUiModel>
+        assertTrue(viewModel.state.value.contentState is UiState.Success)
+        val successState = viewModel.state.value.contentState as UiState.Success<HomeUiModel>
         assertEquals(2, successState.data.sections.size)
     }
 

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -21,18 +20,21 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.thmanyah.domain.models.HomeResponse
 import com.thmanyah.thmanyahdemo.ui.common.HorizontalSquareList
 import com.thmanyah.thmanyahdemo.ui.common.HorizontalTwoLinesGridList
 import com.thmanyah.thmanyahdemo.ui.common.QueueHorizontalList
 import com.thmanyah.thmanyahdemo.ui.common.ShowHorizontalBigSquareList
 import com.thmanyah.thmanyahdemo.ui.common.WelcomeBar
+import com.thmanyah.thmanyahdemo.ui.home.models.HomeIntent
+import com.thmanyah.thmanyahdemo.ui.models.ThmanyahError
 import com.thmanyah.thmanyahdemo.ui.models.UiState
 import com.thmanyah.thmanyahdemo.ui.models.home.HomeSectionUiModel
 import com.thmanyah.thmanyahdemo.ui.models.home.HomeUiModel
@@ -43,13 +45,11 @@ fun HomeScreen(
     navController: NavController
 ) {
     val viewModel: HomeViewModel = hiltViewModel()
-    val homeData by viewModel.homeData.collectAsStateWithLifecycle()
-    val isLoadingMore by viewModel.isLoadingMore.collectAsStateWithLifecycle()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     Box(modifier = modifier.fillMaxSize()) {
-        when (homeData) {
+        when (val contentState = state.contentState) {
             is UiState.Init -> {
-                // Initial state, could show a welcome message or empty state
                 Text(
                     text = "Welcome to Thmanyah",
                     modifier = Modifier.align(Alignment.Center)
@@ -62,23 +62,29 @@ fun HomeScreen(
                 )
             }
 
-            is UiState.Success, is UiState.LoadMore-> {
-                val data = when (homeData) {
-                    is UiState.Success -> (homeData as UiState.Success<HomeUiModel>).data
-                    is UiState.LoadMore -> (homeData as UiState.LoadMore<HomeUiModel>).data
+            is UiState.Success, is UiState.LoadMore -> {
+                val data = when (contentState) {
+                    is UiState.Success -> contentState.data
+                    is UiState.LoadMore -> contentState.data
                     else -> return@Box
                 }
                 Column {
-                    WelcomeBar(navController = navController )
-                    HomeScreenList(data,isLoadingMore,viewModel)
+                    WelcomeBar(navController = navController)
+                    HomeScreenList(
+                        data = data,
+                        isLoadingMore = state.isLoadingMore,
+                        loadMoreError = state.loadMoreError,
+                        onLoadNextPage = { viewModel.onIntent(HomeIntent.LoadNextPage) },
+                        onDismissLoadMoreError = { viewModel.onIntent(HomeIntent.DismissLoadMoreError) }
+                    )
                 }
             }
 
             is UiState.Error -> {
-                val error = (homeData as UiState.Error<HomeResponse>).error
+                val error = contentState.error
                 Text(
                     text = error.messageRes?.let { stringResource(id = it) } ?: error.message
-                    ?: "An error occurred",
+                        ?: "An error occurred",
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
@@ -89,7 +95,6 @@ fun HomeScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
-
         }
     }
 }
@@ -99,17 +104,28 @@ fun HomeScreen(
 fun HomeScreenList(
     data: HomeUiModel,
     isLoadingMore: Boolean,
-    viewModel: HomeViewModel
+    loadMoreError: ThmanyahError?,
+    onLoadNextPage: () -> Unit,
+    onDismissLoadMoreError: () -> Unit
 ) {
     val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val loadMoreErrorMessage = loadMoreError?.let { err ->
+        err.messageRes?.let { stringResource(id = it) } ?: err.message ?: "An error occurred"
+    }
 
-    // derivedStateOf to avoid recomputation unless scroll state actually changes
+    // Show toast when load-more fails; keep list visible and clear error after showing
+    LaunchedEffect(loadMoreError) {
+        loadMoreErrorMessage?.let { message ->
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            onDismissLoadMoreError()
+        }
+    }
+
     val shouldLoadMore = remember {
         derivedStateOf {
             val lastVisibleItemIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
             val totalItemsCount = listState.layoutInfo.totalItemsCount
-
-            // Load more when the user scrolls near the bottom (2 items before the end)
             lastVisibleItemIndex != null &&
                     lastVisibleItemIndex >= totalItemsCount - 3 &&
                     !isLoadingMore
@@ -118,7 +134,7 @@ fun HomeScreenList(
 
     LaunchedEffect(shouldLoadMore.value) {
         if (shouldLoadMore.value) {
-            viewModel.loadNextPage()
+            onLoadNextPage()
         }
     }
 
