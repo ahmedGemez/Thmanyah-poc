@@ -6,7 +6,7 @@ A modern Android application showcasing the latest Android development practices
 
 - Modern Android Architecture Components
 - Jetpack Compose UI
-- MVVM Architecture Pattern
+- MVI (Model-View-Intent) with MVVM
 - Dependency Injection with Hilt
 - Kotlin Coroutines for asynchronous operations
 - Retrofit for network calls
@@ -17,7 +17,7 @@ A modern Android application showcasing the latest Android development practices
 ## Tech Stack
 
 - **Language**: Kotlin
-- **Architecture**: MVVM + Clean Architecture
+- **Architecture**: MVI + MVVM + Clean Architecture
 - **UI**: Jetpack Compose
 - **DI**: Hilt
 - **Async**: Coroutines + Flow
@@ -102,6 +102,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Home sections are loaded with infinite scroll.
 - When the user scrolls near the end, the next page is fetched and appended.
+- If loading the next page fails, a toast is shown and the current list stays visible (no full-screen error).
 
 ## Search
 
@@ -110,6 +111,27 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Architecture
 
-- **MVVM** with Clean Architecture principles.
+The app uses **MVI (Model-View-Intent)** together with **MVVM** and Clean Architecture:
+
+### MVI + MVVM
+
+- **Model (State)**  
+  A single immutable state object (e.g. `HomeState`) holds everything the screen needs: content, loading flags, pagination, and errors. The UI is a direct function of this state.
+
+- **View**  
+  Composable screens observe the state via `StateFlow` and render it. User actions are sent as **Intents** (e.g. `LoadInitial`, `LoadNextPage`) instead of calling multiple ViewModel methods.
+
+- **Intent**  
+  User actions are represented as sealed types (e.g. `HomeIntent`). The View only sends intents; the ViewModel processes them and runs side effects (e.g. use cases, API calls).
+
+- **Reducer**  
+  A pure function `reduce(state, result) -> newState` handles all state updates. Results come from side effects (e.g. `Success`, `Error`, `LoadMoreError`). This keeps transitions predictable and testable.
+
+- **MVVM**  
+  ViewModels remain the same: they own state, handle intents, and expose a single `StateFlow<State>`. The “Intent” layer is an extra step that makes the data flow one-way (View → Intent → ViewModel → State → View).
+
+### Other
+
 - **Hilt** for dependency injection.
 - **StateFlow** for reactive UI state.
+- **Channel** for intent delivery (single consumer, each intent processed once).
