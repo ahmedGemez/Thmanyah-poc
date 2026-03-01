@@ -13,6 +13,7 @@ A modern Android application showcasing the latest Android development practices
 - Material 3 Design
 - Clean Architecture
 - Unit Testing
+- Compose UI Testing
 
 ## Tech Stack
 
@@ -23,7 +24,7 @@ A modern Android application showcasing the latest Android development practices
 - **Async**: Coroutines + Flow
 - **Network**: Retrofit + OkHttp
 - **Image Loading**: Coil
-- **Testing**: JUnit, Mockk
+- **Testing**: JUnit, Mockk, Compose UI (androidTest)
 
 ## Project Structure
 
@@ -52,11 +53,19 @@ The project includes comprehensive testing at different levels:
 - Tests for ViewModels, UseCases
 - Uses JUnit, Mockk, and Turbine
 
+### UI Tests (Compose)
+- Located in `app/src/androidTest/java`
+- Compose UI tests use `createComposeRule()` and the Compose Testing APIs (`onNodeWithText`, `onNodeWithTag`, `assertIsDisplayed`)
+- Example: **HomeScreenTest** verifies the welcome text "Welcome to Thmanyah" is displayed (and the `welcome_text` test tag)
+- Requires a device or emulator; run with `connectedDebugAndroidTest`
+
 ### Running Tests
 ```bash
 # Run unit tests only
 ./gradlew testDebugUnitTest
 
+# Run Android instrumented tests (UI tests) — device/emulator required
+./gradlew :app:connectedDebugAndroidTest
 ```
 
 ## Getting Started
